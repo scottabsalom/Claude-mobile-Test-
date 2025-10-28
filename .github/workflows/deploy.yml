@@ -23,15 +23,19 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          cd car-park-app
+          npm ci
 
       - name: Build
-        run: npm run build
+        run: |
+          cd car-park-app
+          npm run build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: ./dist
+          path: ./car-park-app/dist
 
   deploy:
     environment:
