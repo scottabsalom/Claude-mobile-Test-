@@ -239,3 +239,4 @@ For issues, questions, or suggestions, please open an issue in the repository.
 ---
 
 Built with React, TypeScript, and Tailwind CSS
+<!-- Trigger deployment -->
