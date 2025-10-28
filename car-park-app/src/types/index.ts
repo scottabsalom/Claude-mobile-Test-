@@ -20,6 +20,11 @@ export interface ParkingSpace {
   status: SpaceStatus;
   type: SpaceType;
   currentBooking?: Booking;
+  // Map view coordinates (percentage-based for responsive layout)
+  x?: number;
+  y?: number;
+  // Distance from entrance in meters
+  distanceFromEntrance?: number;
 }
 
 export interface Booking {
@@ -39,9 +44,34 @@ export interface Booking {
   checkedOutAt?: Date;
 }
 
+export interface EntranceMarker {
+  id: string;
+  x: number;
+  y: number;
+  label: string;
+  type: 'entrance' | 'exit';
+}
+
+export interface CarParkLocation {
+  id: string;
+  name: string;
+  address?: string;
+  rows: number;
+  columns: number;
+  spaces: ParkingSpace[];
+  backgroundImage?: string;
+  entranceMarkers?: EntranceMarker[];
+  viewMode?: 'grid' | 'map';
+}
+
 export interface CarParkConfig {
   rows: number;
   columns: number;
   name: string;
   spaces: ParkingSpace[];
+  backgroundImage?: string;
+  entranceMarkers?: EntranceMarker[];
+  viewMode?: 'grid' | 'map';
+  locations?: CarParkLocation[];
+  activeLocationId?: string;
 }

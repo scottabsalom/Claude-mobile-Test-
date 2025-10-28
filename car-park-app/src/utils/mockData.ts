@@ -1,4 +1,12 @@
-import type { User, ParkingSpace, Booking, CarParkConfig, SpaceType } from '../types';
+import type { User, ParkingSpace, Booking, CarParkConfig, SpaceType, EntranceMarker } from '../types';
+
+// Helper function to calculate distance between two points
+const calculateDistance = (x1: number, y1: number, x2: number, y2: number): number => {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  // Convert percentage distance to approximate meters (assuming 100% = 50m)
+  return Math.round(Math.sqrt(dx * dx + dy * dy) * 0.5);
+};
 
 export const generateMockData = () => {
   // Create users
@@ -26,10 +34,32 @@ export const generateMockData = () => {
     },
   ];
 
+  // Define entrance markers
+  const entranceMarkers: EntranceMarker[] = [
+    {
+      id: 'entrance-1',
+      x: 5,
+      y: 50,
+      label: 'Main Entrance',
+      type: 'entrance',
+    },
+    {
+      id: 'exit-1',
+      x: 95,
+      y: 50,
+      label: 'Exit',
+      type: 'exit',
+    },
+  ];
+
   // Create parking spaces in a 5x8 grid
   const rows = 5;
   const columns = 8;
   const spaces: ParkingSpace[] = [];
+
+  // Main entrance position for distance calculation
+  const entranceX = entranceMarkers[0].x;
+  const entranceY = entranceMarkers[0].y;
 
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < columns; col++) {
@@ -55,6 +85,20 @@ export const generateMockData = () => {
         status = 'disabled';
       }
 
+      // Calculate map position (percentage-based for responsive layout)
+      // Spaces arranged in two columns with a center aisle
+      const isLeftSide = col < 4;
+      const columnOffset = isLeftSide ? col : col - 4;
+
+      const x = isLeftSide
+        ? 15 + (columnOffset * 8)  // Left side: 15% to 39%
+        : 55 + (columnOffset * 8); // Right side: 55% to 79%
+
+      const y = 15 + (row * 16); // 15% to 79% vertically
+
+      // Calculate distance from entrance
+      const distanceFromEntrance = calculateDistance(entranceX, entranceY, x, y);
+
       spaces.push({
         id: `space-${spaceNumber}`,
         row,
@@ -62,6 +106,9 @@ export const generateMockData = () => {
         label,
         status,
         type,
+        x,
+        y,
+        distanceFromEntrance,
       });
     }
   }
@@ -109,6 +156,10 @@ export const generateMockData = () => {
     columns,
     name: 'Main Office Car Park',
     spaces,
+    entranceMarkers,
+    viewMode: 'grid', // Default to grid view
+    // Optional: Add a sample background image URL
+    // backgroundImage: 'https://example.com/carpark-floor-plan.jpg',
   };
 
   return { users, spaces, bookings, config };

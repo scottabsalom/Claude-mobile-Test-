@@ -1,18 +1,20 @@
 import React, { useState, useMemo } from 'react';
 import { ParkingSpace } from './ParkingSpace';
+import { MapView } from './MapView';
 import { BookingModal } from './BookingModal';
 import { useApp } from '../context/AppContext';
 import type { ParkingSpace as ParkingSpaceType, SpaceType, SpaceStatus } from '../types';
-import { Search, Filter, X } from 'lucide-react';
+import { Search, Filter, X, Grid3x3, Map as MapIcon } from 'lucide-react';
 
 export const CarParkMap: React.FC = () => {
-  const { parkingSpaces, carParkConfig } = useApp();
+  const { parkingSpaces, carParkConfig, currentUser } = useApp();
   const [selectedSpace, setSelectedSpace] = useState<ParkingSpaceType | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<SpaceType | 'all'>('all');
   const [filterStatus, setFilterStatus] = useState<SpaceStatus | 'all'>('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'map'>(carParkConfig.viewMode || 'grid');
 
   const handleSpaceSelect = (space: ParkingSpaceType) => {
     setSelectedSpace(space);
@@ -74,7 +76,35 @@ export const CarParkMap: React.FC = () => {
   return (
     <div className="w-full">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold mb-4">{carParkConfig.name}</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-2xl font-bold dark:text-white">{carParkConfig.name}</h2>
+
+          {/* View Toggle */}
+          <div className="flex gap-1 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded transition-colors ${
+                viewMode === 'grid'
+                  ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+            >
+              <Grid3x3 className="w-4 h-4" />
+              <span className="text-sm font-medium">Grid</span>
+            </button>
+            <button
+              onClick={() => setViewMode('map')}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded transition-colors ${
+                viewMode === 'map'
+                  ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }`}
+            >
+              <MapIcon className="w-4 h-4" />
+              <span className="text-sm font-medium">Map</span>
+            </button>
+          </div>
+        </div>
 
         {/* Search and Filter */}
         <div className="mb-4 space-y-3">
@@ -182,6 +212,13 @@ export const CarParkMap: React.FC = () => {
             Clear filters
           </button>
         </div>
+      ) : viewMode === 'map' ? (
+        <MapView
+          spaces={filteredSpaces}
+          onSpaceSelect={handleSpaceSelect}
+          selectedSpaceId={selectedSpace?.id}
+          isAdminMode={currentUser?.role === 'admin'}
+        />
       ) : (
         <div className="overflow-x-auto pb-4">
           <div className="inline-block min-w-full">
@@ -189,7 +226,7 @@ export const CarParkMap: React.FC = () => {
               .sort((a, b) => Number(a) - Number(b))
               .map(row => (
                 <div key={row} className="flex gap-2 mb-2">
-                  <div className="flex items-center justify-center w-8 text-sm font-semibold">
+                  <div className="flex items-center justify-center w-8 text-sm font-semibold dark:text-white">
                     {String.fromCharCode(65 + Number(row))}
                   </div>
                   {spacesByRow[Number(row)]
