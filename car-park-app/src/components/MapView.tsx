@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import type { ParkingSpace as ParkingSpaceType } from '../types';
 import { useApp } from '../context/AppContext';
-import { Navigation, Map as MapIcon } from 'lucide-react';
+import { Navigation, Map as MapIcon, ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 
 interface MapViewProps {
   spaces: ParkingSpaceType[];
@@ -16,9 +16,14 @@ export const MapView: React.FC<MapViewProps> = ({
   selectedSpaceId,
   isAdminMode = false
 }) => {
-  const { carParkConfig, currentUser } = useApp();
+  const { carParkConfig, currentUser, updateSpacePosition } = useApp();
   const [isDragging, setIsDragging] = useState(false);
   const [draggedSpaceId, setDraggedSpaceId] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const backgroundImage = carParkConfig.backgroundImage;
   const entranceMarkers = carParkConfig.entranceMarkers || [];
@@ -51,11 +56,12 @@ export const MapView: React.FC<MapViewProps> = ({
   };
 
   const handleSpaceClick = (space: ParkingSpaceType) => {
-    if (space.status === 'available' && !isDragging) {
+    if (space.status === 'available' && !isDragging && !isPanning) {
       onSpaceSelect(space);
     }
   };
 
+  // Drag and drop for admin repositioning
   const handleDragStart = (e: React.DragEvent, spaceId: string) => {
     if (isAdminMode) {
       setIsDragging(true);
@@ -64,9 +70,69 @@ export const MapView: React.FC<MapViewProps> = ({
     }
   };
 
+  const handleDrop = (e: React.DragEvent) => {
+    if (isAdminMode && draggedSpaceId && containerRef.current) {
+      e.preventDefault();
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+      updateSpacePosition(draggedSpaceId, x, y);
+      setIsDragging(false);
+      setDraggedSpaceId(null);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    if (isAdminMode) {
+      e.preventDefault();
+    }
+  };
+
   const handleDragEnd = () => {
     setIsDragging(false);
     setDraggedSpaceId(null);
+  };
+
+  // Zoom controls
+  const handleZoomIn = () => {
+    setZoom(prev => Math.min(prev + 0.2, 3));
+  };
+
+  const handleZoomOut = () => {
+    setZoom(prev => Math.max(prev - 0.2, 0.5));
+  };
+
+  const handleResetView = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  };
+
+  // Pan controls
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button === 0 && !isAdminMode) { // Left click only, not in admin mode
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (isPanning) {
+      setPan({
+        x: e.clientX - panStart.x,
+        y: e.clientY - panStart.y,
+      });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsPanning(false);
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    setZoom(prev => Math.max(0.5, Math.min(3, prev + delta)));
   };
 
   const isFavorite = (spaceId: string) => {
@@ -74,14 +140,59 @@ export const MapView: React.FC<MapViewProps> = ({
   };
 
   return (
-    <div className="relative w-full" style={{ minHeight: '600px', paddingBottom: '75%' }}>
-      {/* Background Image */}
-      {backgroundImage && (
-        <div
-          className="absolute inset-0 bg-center bg-cover rounded-lg opacity-30"
-          style={{ backgroundImage: `url(${backgroundImage})` }}
-        />
-      )}
+    <div className="relative w-full overflow-hidden rounded-lg" style={{ minHeight: '600px', paddingBottom: '75%' }}>
+      {/* Zoom Controls */}
+      <div className="absolute top-4 left-4 z-20 flex flex-col gap-2 bg-white dark:bg-gray-800 p-2 rounded-lg shadow-lg">
+        <button
+          onClick={handleZoomIn}
+          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+          title="Zoom In"
+        >
+          <ZoomIn className="w-5 h-5 dark:text-white" />
+        </button>
+        <button
+          onClick={handleZoomOut}
+          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+          title="Zoom Out"
+        >
+          <ZoomOut className="w-5 h-5 dark:text-white" />
+        </button>
+        <button
+          onClick={handleResetView}
+          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+          title="Reset View"
+        >
+          <Maximize2 className="w-5 h-5 dark:text-white" />
+        </button>
+        <div className="text-xs text-center text-gray-600 dark:text-gray-400 mt-1">
+          {Math.round(zoom * 100)}%
+        </div>
+      </div>
+
+      {/* Zoomable and Pannable Container */}
+      <div
+        ref={containerRef}
+        className={`absolute inset-0 ${isPanning ? 'cursor-grabbing' : isAdminMode ? 'cursor-default' : 'cursor-grab'}`}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onWheel={handleWheel}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        style={{
+          transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+          transformOrigin: 'center center',
+          transition: isPanning ? 'none' : 'transform 0.1s ease-out',
+        }}
+      >
+        {/* Background Image */}
+        {backgroundImage && (
+          <div
+            className="absolute inset-0 bg-center bg-cover rounded-lg opacity-30"
+            style={{ backgroundImage: `url(${backgroundImage})` }}
+          />
+        )}
 
       {/* Grid overlay for positioning reference */}
       {isAdminMode && (
@@ -183,6 +294,7 @@ export const MapView: React.FC<MapViewProps> = ({
           </div>
         );
       })}
+    </div>
 
       {/* Legend */}
       <div className="absolute bottom-4 right-4 bg-white dark:bg-gray-800 p-3 rounded-lg shadow-lg text-xs">

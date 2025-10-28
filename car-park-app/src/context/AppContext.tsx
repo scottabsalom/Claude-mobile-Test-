@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import type { User, ParkingSpace, Booking, CarParkConfig, SpaceStatus } from '../types';
+import type { User, ParkingSpace, Booking, CarParkConfig, SpaceStatus, CarParkLocation, EntranceMarker } from '../types';
 import { generateMockData } from '../utils/mockData';
 
 interface AppContextType {
@@ -20,6 +20,11 @@ interface AppContextType {
   checkIn: (bookingId: string) => void;
   checkOut: (bookingId: string) => void;
   toggleDarkMode: () => void;
+  uploadBackgroundImage: (imageData: string) => void;
+  updateSpacePosition: (spaceId: string, x: number, y: number) => void;
+  addLocation: (location: CarParkLocation) => void;
+  switchLocation: (locationId: string) => void;
+  updateEntranceMarkers: (markers: EntranceMarker[]) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -235,6 +240,51 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   }, [currentUser]);
 
+  const uploadBackgroundImage = (imageData: string) => {
+    setCarParkConfig({ ...carParkConfig, backgroundImage: imageData });
+  };
+
+  const updateSpacePosition = (spaceId: string, x: number, y: number) => {
+    setParkingSpaces(parkingSpaces.map(s =>
+      s.id === spaceId ? { ...s, x, y } : s
+    ));
+
+    // Also update in config
+    const updatedSpaces = parkingSpaces.map(s =>
+      s.id === spaceId ? { ...s, x, y } : s
+    );
+    setCarParkConfig({ ...carParkConfig, spaces: updatedSpaces });
+  };
+
+  const addLocation = (location: CarParkLocation) => {
+    const locations = carParkConfig.locations || [];
+    setCarParkConfig({
+      ...carParkConfig,
+      locations: [...locations, location],
+    });
+  };
+
+  const switchLocation = (locationId: string) => {
+    const location = carParkConfig.locations?.find(l => l.id === locationId);
+    if (location) {
+      setParkingSpaces(location.spaces);
+      setCarParkConfig({
+        ...carParkConfig,
+        activeLocationId: locationId,
+        name: location.name,
+        rows: location.rows,
+        columns: location.columns,
+        backgroundImage: location.backgroundImage,
+        entranceMarkers: location.entranceMarkers,
+        viewMode: location.viewMode,
+      });
+    }
+  };
+
+  const updateEntranceMarkers = (markers: EntranceMarker[]) => {
+    setCarParkConfig({ ...carParkConfig, entranceMarkers: markers });
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -254,6 +304,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         checkIn,
         checkOut,
         toggleDarkMode,
+        uploadBackgroundImage,
+        updateSpacePosition,
+        addLocation,
+        switchLocation,
+        updateEntranceMarkers,
       }}
     >
       {children}

@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Settings, Users, Calendar, ParkingSquare, AlertCircle } from 'lucide-react';
+import { Settings, Users, Calendar, ParkingSquare, AlertCircle, Upload, MapPin, Building2 } from 'lucide-react';
 import { format } from 'date-fns';
+import type { CarParkLocation } from '../types';
 
 export const AdminPanel: React.FC = () => {
-  const { currentUser, parkingSpaces, bookings, users, updateSpaceStatus } = useApp();
-  const [activeTab, setActiveTab] = useState<'overview' | 'bookings' | 'spaces' | 'users'>('overview');
+  const { currentUser, parkingSpaces, bookings, users, updateSpaceStatus, carParkConfig, uploadBackgroundImage, addLocation, switchLocation } = useApp();
+  const [activeTab, setActiveTab] = useState<'overview' | 'bookings' | 'spaces' | 'users' | 'settings'>('overview');
+  const [uploadStatus, setUploadStatus] = useState<string>('');
+  const [newLocationName, setNewLocationName] = useState('');
 
   if (currentUser?.role !== 'admin') {
     return (
@@ -26,6 +29,48 @@ export const AdminPanel: React.FC = () => {
     totalBookings: bookings.length,
     activeBookings: bookings.filter(b => b.status === 'active').length,
     totalUsers: users.length,
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setUploadStatus('Please select an image file');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const imageData = event.target?.result as string;
+      uploadBackgroundImage(imageData);
+      setUploadStatus('Floor plan uploaded successfully!');
+      setTimeout(() => setUploadStatus(''), 3000);
+    };
+    reader.onerror = () => {
+      setUploadStatus('Error uploading image');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAddLocation = () => {
+    if (!newLocationName.trim()) return;
+
+    const newLocation: CarParkLocation = {
+      id: `location-${Date.now()}`,
+      name: newLocationName,
+      rows: carParkConfig.rows,
+      columns: carParkConfig.columns,
+      spaces: [...parkingSpaces],
+      backgroundImage: carParkConfig.backgroundImage,
+      entranceMarkers: carParkConfig.entranceMarkers,
+      viewMode: carParkConfig.viewMode,
+    };
+
+    addLocation(newLocation);
+    setNewLocationName('');
+    setUploadStatus('Location added successfully!');
+    setTimeout(() => setUploadStatus(''), 3000);
   };
 
   return (
@@ -76,6 +121,16 @@ export const AdminPanel: React.FC = () => {
             }`}
           >
             Users
+          </button>
+          <button
+            onClick={() => setActiveTab('settings')}
+            className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
+              activeTab === 'settings'
+                ? 'bg-purple-100 text-purple-700 font-medium'
+                : 'hover:bg-gray-100'
+            }`}
+          >
+            Settings
           </button>
         </div>
       </div>
@@ -261,6 +316,129 @@ export const AdminPanel: React.FC = () => {
                   </span>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'settings' && (
+          <div className="space-y-8">
+            <div>
+              <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                <Upload className="w-5 h-5" />
+                Floor Plan Upload
+              </h3>
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 dark:border-gray-600">
+                <div className="text-center">
+                  <MapPin className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <label htmlFor="floor-plan-upload" className="cursor-pointer">
+                    <span className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+                      <Upload className="w-4 h-4" />
+                      Upload Floor Plan
+                    </span>
+                    <input
+                      id="floor-plan-upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                  </label>
+                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    PNG, JPG, or SVG (recommended: 1920x1080px)
+                  </p>
+                  {uploadStatus && (
+                    <p className={`mt-2 text-sm ${uploadStatus.includes('Error') ? 'text-red-600' : 'text-green-600'}`}>
+                      {uploadStatus}
+                    </p>
+                  )}
+                </div>
+                {carParkConfig.backgroundImage && (
+                  <div className="mt-4">
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Current Floor Plan Preview:</p>
+                    <img
+                      src={carParkConfig.backgroundImage}
+                      alt="Floor plan preview"
+                      className="max-h-48 mx-auto rounded border"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div>
+              <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                <Building2 className="w-5 h-5" />
+                Locations / Floors Management
+              </h3>
+
+              {/* Add New Location */}
+              <div className="border rounded-lg p-4 mb-4 dark:border-gray-600">
+                <h4 className="font-medium mb-3">Add New Location</h4>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newLocationName}
+                    onChange={(e) => setNewLocationName(e.target.value)}
+                    placeholder="Location name (e.g., Floor 1, Building A)"
+                    className="flex-1 px-3 py-2 border rounded-lg dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                  />
+                  <button
+                    onClick={handleAddLocation}
+                    disabled={!newLocationName.trim()}
+                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    Add Location
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  This will save the current car park layout as a new location
+                </p>
+              </div>
+
+              {/* Location List */}
+              {carParkConfig.locations && carParkConfig.locations.length > 0 && (
+                <div className="border rounded-lg divide-y dark:border-gray-600 dark:divide-gray-600">
+                  <div className="p-3 bg-gray-50 dark:bg-gray-800">
+                    <h4 className="font-medium">Saved Locations</h4>
+                  </div>
+                  {carParkConfig.locations.map((location) => (
+                    <div
+                      key={location.id}
+                      className="p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800"
+                    >
+                      <div>
+                        <div className="font-medium dark:text-white">{location.name}</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                          {location.spaces.length} spaces • {location.rows}x{location.columns} grid
+                          {location.backgroundImage && ' • Has floor plan'}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => switchLocation(location.id)}
+                        className={`px-4 py-2 rounded-lg transition-colors ${
+                          carParkConfig.activeLocationId === location.id
+                            ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300'
+                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300'
+                        }`}
+                      >
+                        {carParkConfig.activeLocationId === location.id ? 'Active' : 'Switch'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 dark:bg-blue-900 dark:border-blue-800">
+              <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">Map View Instructions</h4>
+              <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1 list-disc list-inside">
+                <li>Upload a floor plan image to use as the map background</li>
+                <li>Switch to Map view in the main interface</li>
+                <li>In Map view, you can drag and drop parking spaces to position them on the floor plan</li>
+                <li>Use the zoom controls to zoom in/out (mouse wheel also works)</li>
+                <li>Click and drag to pan around the map</li>
+                <li>Save different floor layouts as separate locations</li>
+              </ul>
             </div>
           </div>
         )}
