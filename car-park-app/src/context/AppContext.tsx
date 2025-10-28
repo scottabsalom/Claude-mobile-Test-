@@ -15,6 +15,11 @@ interface AppContextType {
   cancelBooking: (bookingId: string) => void;
   updateSpaceStatus: (spaceId: string, status: SpaceStatus) => void;
   updateCarParkConfig: (config: Partial<CarParkConfig>) => void;
+  toggleFavoriteSpace: (spaceId: string) => void;
+  extendBooking: (bookingId: string, newEndDate: Date) => boolean;
+  checkIn: (bookingId: string) => void;
+  checkOut: (bookingId: string) => void;
+  toggleDarkMode: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -134,6 +139,102 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setCarParkConfig({ ...carParkConfig, ...config });
   };
 
+  const toggleFavoriteSpace = (spaceId: string) => {
+    if (!currentUser) return;
+
+    const favorites = currentUser.favoriteSpaces || [];
+    const newFavorites = favorites.includes(spaceId)
+      ? favorites.filter(id => id !== spaceId)
+      : [...favorites, spaceId];
+
+    const updatedUser = { ...currentUser, favoriteSpaces: newFavorites };
+    setCurrentUser(updatedUser);
+
+    // Update in users list
+    setUsers(users.map(u => u.id === currentUser.id ? updatedUser : u));
+  };
+
+  const extendBooking = (bookingId: string, newEndDate: Date): boolean => {
+    const booking = bookings.find(b => b.id === bookingId);
+    if (!booking || booking.status !== 'active') return false;
+
+    // Check for conflicts with new end date
+    const hasConflict = bookings.some(b =>
+      b.id !== bookingId &&
+      b.spaceId === booking.spaceId &&
+      b.status === 'active' &&
+      newEndDate > b.startDate && newEndDate <= b.endDate
+    );
+
+    if (hasConflict) return false;
+
+    setBookings(bookings.map(b =>
+      b.id === bookingId ? { ...b, endDate: newEndDate } : b
+    ));
+
+    return true;
+  };
+
+  const checkIn = (bookingId: string) => {
+    setBookings(bookings.map(b =>
+      b.id === bookingId
+        ? { ...b, checkedIn: true, checkedInAt: new Date() }
+        : b
+    ));
+
+    // Update space status to occupied
+    const booking = bookings.find(b => b.id === bookingId);
+    if (booking) {
+      setParkingSpaces(parkingSpaces.map(s =>
+        s.id === booking.spaceId ? { ...s, status: 'occupied' as SpaceStatus } : s
+      ));
+    }
+  };
+
+  const checkOut = (bookingId: string) => {
+    setBookings(bookings.map(b =>
+      b.id === bookingId
+        ? { ...b, checkedOut: true, checkedOutAt: new Date(), status: 'completed' as const }
+        : b
+    ));
+
+    // Update space status to available
+    const booking = bookings.find(b => b.id === bookingId);
+    if (booking) {
+      setParkingSpaces(parkingSpaces.map(s =>
+        s.id === booking.spaceId
+          ? { ...s, status: 'available' as SpaceStatus, currentBooking: undefined }
+          : s
+      ));
+    }
+  };
+
+  const toggleDarkMode = () => {
+    if (!currentUser) return;
+
+    const updatedUser = { ...currentUser, darkMode: !currentUser.darkMode };
+    setCurrentUser(updatedUser);
+
+    // Update in users list
+    setUsers(users.map(u => u.id === currentUser.id ? updatedUser : u));
+
+    // Apply dark mode to document
+    if (updatedUser.darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  };
+
+  // Apply dark mode on load
+  useEffect(() => {
+    if (currentUser?.darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [currentUser]);
+
   return (
     <AppContext.Provider
       value={{
@@ -148,6 +249,11 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         cancelBooking,
         updateSpaceStatus,
         updateCarParkConfig,
+        toggleFavoriteSpace,
+        extendBooking,
+        checkIn,
+        checkOut,
+        toggleDarkMode,
       }}
     >
       {children}

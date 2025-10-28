@@ -8,6 +8,8 @@ export interface User {
   email: string;
   role: UserRole;
   vehicleNumber?: string;
+  favoriteSpaces?: string[];
+  darkMode?: boolean;
 }
 
 export interface ParkingSpace {
@@ -31,6 +33,10 @@ export interface Booking {
   vehicleNumber?: string;
   createdAt: Date;
   status: 'active' | 'completed' | 'cancelled';
+  checkedIn?: boolean;
+  checkedInAt?: Date;
+  checkedOut?: boolean;
+  checkedOutAt?: Date;
 }
 
 export interface CarParkConfig {

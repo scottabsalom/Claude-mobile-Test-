@@ -1,6 +1,7 @@
 import React from 'react';
 import type { ParkingSpace as ParkingSpaceType } from '../types';
-import { Car, Zap, Users, Minimize, Ban } from 'lucide-react';
+import { Car, Zap, Users, Minimize, Ban, Star } from 'lucide-react';
+import { useApp } from '../context/AppContext';
 
 interface ParkingSpaceProps {
   space: ParkingSpaceType;
@@ -9,6 +10,9 @@ interface ParkingSpaceProps {
 }
 
 export const ParkingSpace: React.FC<ParkingSpaceProps> = ({ space, onSelect, isSelected }) => {
+  const { currentUser, toggleFavoriteSpace } = useApp();
+  const isFavorite = currentUser?.favoriteSpaces?.includes(space.id) || false;
+
   const getStatusColor = () => {
     switch (space.status) {
       case 'available':
@@ -45,6 +49,11 @@ export const ParkingSpace: React.FC<ParkingSpaceProps> = ({ space, onSelect, isS
     }
   };
 
+  const handleFavoriteClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggleFavoriteSpace(space.id);
+  };
+
   return (
     <div
       onClick={handleClick}
@@ -59,6 +68,19 @@ export const ParkingSpace: React.FC<ParkingSpaceProps> = ({ space, onSelect, isS
       {space.status === 'disabled' && (
         <Ban className="absolute top-1 right-1 w-4 h-4 text-red-500" />
       )}
+
+      {/* Favorite Star */}
+      <button
+        onClick={handleFavoriteClick}
+        className="absolute top-1 left-1 p-0.5 hover:scale-110 transition-transform"
+        title={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+      >
+        <Star
+          className={`w-3 h-3 ${
+            isFavorite ? 'fill-yellow-400 text-yellow-400' : 'text-gray-400'
+          }`}
+        />
+      </button>
 
       <div className="text-xs font-semibold mb-1">{space.label}</div>
 
